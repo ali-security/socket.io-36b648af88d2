@@ -1,16 +1,7 @@
 name: CI (@socket.io/component-emitter)
 
 on:
-  push:
-    branches:
-      - '**'
-    paths:
-      - 'packages/socket.io-component-emitter/**'
-      - '.github/workflows/ci-socket.io-component-emitter.yml'
-  pull_request:
-    paths:
-      - 'packages/socket.io-component-emitter/**'
-      - '.github/workflows/ci-socket.io-component-emitter.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read

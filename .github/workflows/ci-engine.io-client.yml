@@ -1,22 +1,7 @@
 name: CI (engine.io-client)
 
 on:
-  push:
-    branches:
-      - '**'
-    paths:
-      - 'packages/engine.io/**'
-      - 'packages/engine.io-client/**'
-      - 'packages/engine.io-parser/**'
-      - 'packages/socket.io-component-emitter/**'
-      - '.github/workflows/ci-engine.io-client.yml'
-  pull_request:
-    paths:
-      - 'packages/engine.io/**'
-      - 'packages/engine.io-client/**'
-      - 'packages/engine.io-parser/**'
-      - 'packages/socket.io-component-emitter/**'
-      - '.github/workflows/ci-engine.io-client.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read

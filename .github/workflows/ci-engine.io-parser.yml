@@ -1,16 +1,7 @@
 name: CI (engine.io-parser)
 
 on:
-  push:
-    branches:
-      - '**'
-    paths:
-      - 'packages/engine.io-parser/**'
-      - '.github/workflows/ci-engine.io-parser.yml'
-  pull_request:
-    paths:
-      - 'packages/engine.io-parser/**'
-      - '.github/workflows/ci-engine.io-parser.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read

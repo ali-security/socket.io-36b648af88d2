@@ -1,22 +1,12 @@
 name: CI (engine.io)
 
 on:
-  push:
-    branches:
-      - '**'
-    paths:
-      - 'packages/engine.io/**'
-      - 'packages/engine.io-client/**'
-      - 'packages/engine.io-parser/**'
-      - 'packages/socket.io-component-emitter/**'
-      - '.github/workflows/ci-engine.io.yml'
-  pull_request:
-    paths:
-      - 'packages/engine.io/**'
-      - 'packages/engine.io-client/**'
-      - 'packages/engine.io-parser/**'
-      - 'packages/socket.io-component-emitter/**'
-      - '.github/workflows/ci-engine.io.yml'
+  workflow_dispatch:
+    inputs:
+      test-filter:
+        description: 'mocha --grep pattern to run a subset of the engine.io tests (empty = full suite)'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -24,16 +14,23 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 40
+
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version:
+          - 20
+          - 24
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Use Node.js 24
+      - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: ${{ matrix.node-version }}
           cache: npm
 
       - name: Install dependencies
@@ -53,7 +50,56 @@ jobs:
             --workspace=engine.io-client
 
       - name: Run tests
-        run: npm test --workspace=engine.io
+        run: |
+          if [ -n "${{ inputs.test-filter }}" ]; then
+            npm run test:default --workspace=engine.io -- --grep "${{ inputs.test-filter }}"
+          else
+            npm run compile --workspace=engine.io
+            npm run test:default --workspace=engine.io
+            npm run test:compat-v3 --workspace=engine.io
+          fi
 
       - name: Run tests with uws
+        if: matrix.node-version == 24 && inputs.test-filter == ''
         run: npm run test:uws --workspace=engine.io
+
+      - name: Report skipped (pending) tests and their reasons
+        run: |
+          cd packages/engine.io
+          echo "Pending tests are skips declared by upstream in packages/engine.io/test:"
+          echo "- 'should be the same version as client' (it.skip, every run): engine.io and engine.io-client are versioned independently in the monorepo, so the version-equality check is disabled upstream."
+          echo "- 'should allow loading of other websocket server implementation like eiows' (it.skip, every run): upstream FIXME - eiows fails to build on Node.js >= 18."
+          echo "- every other pending test appears only in the 'Run tests with uws' step: guarded by 'if (process.env.EIO_WS_ENGINE === \"uws\") this.skip()' because uWebSockets.js does not support that feature (custom origin/http handling, chunked transfer-encoding, graceful close, TLS key/cert/pfx options, pre-encoded frames, wsEngine option)."
+          echo "Skip sites in the source:"
+          grep -n "it.skip(\|FIXME" test/*.js
+          grep -n -B2 "this.skip()" test/*.js | grep -v "^--$"
+
+  pack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Use Node.js 26
+        uses: actions/setup-node@v6
+        with:
+          node-version: 26
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Compile each package
+        run: npm run compile --workspaces --if-present
+
+      - name: Pack engine.io
+        run: npm pack --workspace=engine.io
+
+      - name: Upload engine.io tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: engine.io-tgz
+          path: engine.io-*.tgz
+          if-no-files-found: error
